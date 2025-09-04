@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose the Flask port
-EXPOSE 8000
+EXPOSE 6020
 
 # Run the Flask app
-CMD ["python", "whatsappfor1.8release.py"]
+CMD ["python", "mail_trigger.py"]
