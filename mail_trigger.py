@@ -1,37 +1,55 @@
-import smtplib
-import os
 from flask import Flask, request, jsonify
+import smtplib
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import os
 
 app = Flask(__name__)
 
-FROM_ADDRESS = os.getenv("FROM_ADDRESS")
-ACCOUNT_NAME = os.getenv("ACCOUNT_NAME")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-SMTP_SERVER = "smtp.office365.com"
-SMTP_PORT = 587
+def send_first_mail(value_id, follow_up_message, from_address, account_name, new_recipient, product_name, follow_up_link):
+    try:
+        # Create the email message
+        msg = MIMEMultipart("alternative")
+        msg["From"] = from_address
+        msg["To"] = new_recipient
+        msg["Subject"] = f"{value_id}"
 
-#Done
+        # Email body (HTML)
+        html_body = MIMEText(follow_up_message, "html")
+        msg.attach(html_body)
+
+        # Connect to Office 365 SMTP server
+        smtp_server = "smtp.office365.com"
+        smtp_port = 587
+        smtp_user = from_address  # your email (same as login)
+        smtp_password = os.environ.get("EMAIL_PASSWORD")  # stored securely in env/secret
+
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(from_address, new_recipient, msg.as_string())
+
+        return {"message": "Email sent successfully."}
+
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.route('/send_email', methods=['POST'])
 def send_email():
     data = request.json
+
     value_id = data.get("value_id")
     follow_up_message = data.get("follow_up_message")
     new_recipient = data.get("new_recipient")
+    product_name = data.get("product_name")
+    follow_up_link = data.get("follow_up_link")
 
-    try:
-        msg = MIMEText(follow_up_message, "html")
-        msg["Subject"] = value_id
-        msg["From"] = FROM_ADDRESS
-        msg["To"] = new_recipient
+    from_address = os.environ.get("FROM_ADDRESS", "gvw-one@outlook.com")
+    account_name = os.environ.get("ACCOUNT_NAME", "gvw-one@outlook.com")
 
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        server.starttls()
-        server.login(ACCOUNT_NAME, EMAIL_PASSWORD)
-        server.sendmail(FROM_ADDRESS, [new_recipient], msg.as_string())
-        server.quit()
+    result = send_first_mail(value_id, follow_up_message, from_address, account_name, new_recipient, product_name, follow_up_link)
 
-        return jsonify({"message": "Email sent successfully."})
+    return jsonify(result)
 
-    except Exception as e:
-        return jsonify({"error": str(e)})
+if __name__ == "__main__":
+    app.run(port=6020, host="0.0.0.0")
