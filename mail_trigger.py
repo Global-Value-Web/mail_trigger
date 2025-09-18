@@ -1,91 +1,55 @@
 from flask import Flask, request, jsonify
-import json
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import os
 
-# Try importing Windows-only libraries
-try:
-    import win32com.client
-    import pythoncom
-except ImportError:
-    win32com = None
-    pythoncom = None
-
-import smtplib
-from email.message import EmailMessage
-
-# Create an instance of the Flask class
 app = Flask(__name__)
 
 def send_first_mail(value_id, follow_up_message, from_address, account_name, new_recipient, product_name, follow_up_link):
     try:
-        if win32com:  # Windows Outlook COM
-            pythoncom.CoInitialize()
-            outlook = win32com.client.Dispatch("Outlook.Application")
-            namespace = outlook.GetNamespace("MAPI")
+        # Create the email message
+        msg = MIMEMultipart("alternative")
+        msg["From"] = from_address
+        msg["To"] = new_recipient
+        msg["Subject"] = f"{value_id}"
 
-            account = None
-            for acc in namespace.Folders:
-                if acc.Name == account_name:
-                    account = acc
-                    break
+        # Email body (HTML)
+        html_body = MIMEText(follow_up_message, "html")
+        msg.attach(html_body)
 
-            if not account:
-                return {"error": f"No account found with the name {account_name}"}
+        # Connect to Office 365 SMTP server
+        smtp_server = "smtp.office365.com"
+        smtp_port = 587
+        smtp_user = from_address  # your email (same as login)
+        smtp_password = os.environ.get("EMAIL_PASSWORD")  # stored securely in env/secret
 
-            new_mail = outlook.CreateItem(0)  # Mail item
-            new_mail.HTMLBody = follow_up_message
-            new_mail.SentOnBehalfOfName = from_address
-            new_mail.To = new_recipient
-            new_mail.Subject = f"{value_id}"
-            new_mail.Send()
-            return {"message": "First email sent successfully (via Outlook COM)."}
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(from_address, new_recipient, msg.as_string())
 
-        else:  # Linux/Docker fallback → SMTP
-            msg = EmailMessage()
-            msg["Subject"] = f"{value_id}"
-            msg["From"] = from_address
-            msg["To"] = new_recipient
-            msg.set_content(follow_up_message)
-
-            smtp_host = os.environ.get("SMTP_HOST")
-            smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-            smtp_user = os.environ.get("SMTP_USER")
-            smtp_pass = os.environ.get("SMTP_PASS")
-
-            with smtplib.SMTP(smtp_host, smtp_port) as s:
-                s.starttls()
-                if smtp_user and smtp_pass:
-                    s.login(smtp_user, smtp_pass)
-                s.send_message(msg)
-
-            return {"message": "First email sent successfully (via SMTP)."}
+        return {"message": "Email sent successfully."}
 
     except Exception as e:
         return {"error": str(e)}
 
-    finally:
-        if win32com:
-            pythoncom.CoUninitialize()
-
-# API route
 @app.route('/send_email', methods=['POST'])
 def send_email():
     data = request.json
-    value_id = data.get('value_id')
-    follow_up_message = data.get('follow_up_message')
-    new_recipient = data.get('new_recipient')
-    product_name = data.get('product_name')
-    follow_up_link = data.get('follow_up_link')
 
-    from_address = os.environ.get("SMTP_FROM", "gvw-one@outlook.com")
-    account_name = "gvw-one@outlook.com"
+    value_id = data.get("value_id")
+    follow_up_message = data.get("follow_up_message")
+    new_recipient = data.get("new_recipient")
+    product_name = data.get("product_name")
+    follow_up_link = data.get("follow_up_link")
 
-    result = send_first_mail(
-        value_id, follow_up_message, from_address,
-        account_name, new_recipient, product_name, follow_up_link
-    )
+    from_address = os.environ.get("FROM_ADDRESS", "gvw-one@outlook.com")
+    account_name = os.environ.get("ACCOUNT_NAME", "gvw-one@outlook.com")
+
+    result = send_first_mail(value_id, follow_up_message, from_address, account_name, new_recipient, product_name, follow_up_link)
 
     return jsonify(result)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(port=6020, host="0.0.0.0")
