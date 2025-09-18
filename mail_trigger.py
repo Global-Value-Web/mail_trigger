@@ -11,6 +11,7 @@ EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 SMTP_SERVER = "smtp.office365.com"
 SMTP_PORT = 587
 
+#Done
 @app.route('/send_email', methods=['POST'])
 def send_email():
     data = request.json
