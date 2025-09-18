@@ -43,4 +43,4 @@ jobs:
              docker stop mail_trigger_app
              docker rm mail_trigger_app
           }
-          docker run -d --restart=always -p 6020:6020 --name mail_trigger_app -e FROM_ADDRESS=${{ secrets.FROM_ADDRESS }} -e ACCOUNT_NAME=${{ secrets.ACCOUNT_NAME }} $IMAGE_NAME
+          docker run -d --restart=always -p 6020:6020 --name mail_trigger_app -e FROM_ADDRESS=${{ secrets.FROM_ADDRESS }} -e ACCOUNT_NAME=${{ secrets.ACCOUNT_NAME }} -e EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }} $IMAGE_NAME
